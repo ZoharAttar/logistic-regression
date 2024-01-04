@@ -1,0 +1,244 @@
+---
+title: "HW4"
+output: html_document
+date: "2023-01-05"
+---
+
+**name: Zohar Attar**<br>
+**id: 209230879**
+
+### Instructions
+
+1.  All assignments are individual!
+2.  This assignment should be uploaded as two files: "rmd" and "html" (after knit) before 14/05/2023, 23:59.
+4.  Questions about the assignment should be asked using the Assignments forums.
+5.  All of the instructions of this assignment should be included in the final .html file.
+
+```{r load-packages, message = FALSE}
+library(tidyverse)
+library(tidymodels)
+library(schrute)
+library(lubridate)
+library(knitr)
+library(openintro)
+library(ROSE)
+```
+
+
+
+
+
+##################################
+
+ In this Exersise you have the email spam train and test datasets.<br>
+ You are required to make the following:<br>
+ 1) Data explanation:<br>
+Choose five variables and explain them.<br>
+Calculate mean median, std.<br>
+Show frequency graph.<br>
+Explain problems in the data (if was).<br>
+ 2) Mail classification for spam or not:<br>
+    - Use logistic regression for classification <br>
+    - The goal is to get to a better solution as well as you can <br>
+    - You can use material not from this course. Explain them and why you used them.<br>
+    - Use the following evaluation metrics:<br>
+    Precision, Recall, and F1 score<br>
+    - Explain why in your opinion, this is the best solution<br>
+
+
+```{r lines, echo=FALSE}
+set.seed(1116)
+train = read_rds("train_data.csv")
+test = read_rds("test_data.csv")
+```
+
+**1.attach - This variable represents the number of attachment in the email message.**
+
+**line_breaks - This variable represents the number of line breaks in the email message.**
+
+**image - This variable represents the number of images in the email message.**
+
+**dollar - This variable represents the number of dollar signs in the email message.**
+
+**cc - This variable represents the number of cc (carbon copies) in the email message.**
+
+```{r}
+vars <- train %>% select("attach", "line_breaks", "image", "dollar", "cc")
+
+vars_mean <- sapply(vars, mean)
+
+vars_median <- sapply(vars, median)
+
+vars_std <- sapply(vars, sd)
+
+vars_summary <- tibble(
+  Variable = c("attach", "line_breaks", "image", "dollar", "cc"),
+  Mean = vars_mean,
+  Median = vars_median,
+  STD = vars_std
+)
+
+vars_summary
+
+```
+
+```{r}
+ggplot(train, aes(x=attach)) +
+  geom_histogram(binwidth = 0.5,fill="pink",color="black") +
+  xlim(-1,5) +
+  labs(x="number of attachments", y="frequency") +
+  stat_bin(aes(label = ifelse(..count.. == 0, "", paste0(round((..count..)/sum(..count..)*100), "%"))), 
+           geom = "text", vjust = -0.5)
+```
+
+```{r}
+ggplot(train, aes(x=line_breaks)) +
+  geom_histogram(fill="green", color= "black") +
+  labs(x="number of line breaks", y="frequency") +
+  stat_bin(aes(label = ifelse(round((..count..)/sum(..count..)*100) == 0, "",
+                              paste0(round((..count..)/sum(..count..)*100),"%"))),geom = "text", vjust = -0.5)
+```
+
+```{r}
+ggplot(train, aes(x=image)) +
+  geom_histogram(binwidth=0.5,fill="blue",color="black") +
+  xlim(-1,5) +
+  labs(x="number of images", y="frequency") +
+  stat_bin(aes(label = ifelse(round((..count..)/sum(..count..)*100) == 0, "",
+                              paste0(round((..count..)/sum(..count..)*100),"%"))),geom = "text", vjust = -0.5)
+```
+
+```{r}
+ggplot(train, aes(x=dollar)) +
+  geom_histogram(binwidth=0.8,fill="yellow",color="black") +
+  xlim(-1,45) +
+  labs(x="number of dollars sign", y="frequency")
+```
+
+```{r}
+ggplot(train, aes(x=cc)) +
+  geom_histogram(color="black",binwidth=0.7,fill="lightblue") +
+  xlim(-1,37) 
+
+```
+
+
+**There are several issues with the data:**
+
+Firstly, the "viagra" variable has only one non-zero value, which is 8, while all other values are 0. This is a problem because it could lead to incorrect results in the model and the variable may not be necessary as a feature.
+Moreover, we can see that also the "from" variable has the same issue - it has only two 0 values and the rest values is 1.
+
+Secondly, the "time" variable contains both date and time information together. This makes it difficult to include it in the model and it needs to be separated into two different variables.
+
+Finally, "num_char" and "line_breaks" variables having too many unique values it might make it difficult to detect patterns or perform analyses.
+
+
+**2. logistic regression**
+
+```{r}
+email_rec <- recipe(spam ~ ., data = train) %>%
+  step_rm(from, sent_email) %>%
+  step_date(time, features = c("dow", "month")) %>%               
+  step_rm(time) %>%
+  step_cut(cc, attach, dollar, breaks = c(0, 1)) %>%
+  step_cut(inherit, password, breaks = c(0, 1, 5, 10, 20)) %>%
+  step_dummy(all_nominal(), -all_outcomes()) %>%
+  step_zv(all_predictors())
+```
+
+```{r}
+email_mod <- logistic_reg() %>% 
+  set_engine("glm")
+email_mod
+```
+
+```{r}
+email_wflow <- workflow() %>% 
+  add_model(email_mod) %>% 
+  add_recipe(email_rec)
+```
+
+
+```{r}
+email_fit <- email_wflow %>% 
+  fit(data = train)
+```
+
+```{r}
+tidy(email_fit) %>% print(n = 31)
+```
+
+```{r}
+email_pred <- predict(email_fit, test) %>% 
+  bind_cols(test)
+
+email_pred
+```
+
+```{r}
+email_pred$spam <- as.factor(email_pred$spam)
+conf_matrix <- conf_mat(email_pred, truth = spam, estimate = .pred_class)
+summary(conf_matrix)
+
+```
+
+**the result of this model is:**<br>
+precision value: 0.9196507<br>
+recall value: 0.9887324<br>
+F1 value: 0.9529412<br>
+
+To improve this model, I decided to look at the F1 score value which combines both the precision and the recall. In order to decide which features to involve in the model or to omit, I looked at the coefficients of each one of the variables in the email_pred table. I noticed that the coefficients for viagra, line_breaks, exclaim_mess and num_char are low, indicating that they do not have a high effect on the model results. Therefore, I chose to remove them from the model and checked if the F1 score would improve. Additionally, I checked the sent_email column and found that there are many unique values that can help the model identify spam emails, so I decided to add it to the model and check if it improves the performance.
+
+
+```{r}
+email_rec1 <- recipe(spam ~ ., data = train) %>%
+  step_rm(from, viagra, line_breaks,exclaim_mess,num_char) %>%
+  step_date(time, features = c("dow", "month")) %>%               
+  step_rm(time) %>%
+  step_cut(cc, attach, dollar, breaks = c(0, 1)) %>%
+  step_cut(inherit, password, breaks = c(0, 1, 5, 10, 20)) %>%
+  step_dummy(all_nominal(), -all_outcomes()) %>%
+  step_zv(all_predictors())
+```
+
+```{r}
+email_mod1 <- logistic_reg() %>% 
+  set_engine("glm")
+email_mod1
+```
+
+```{r}
+email_wflow1 <- workflow() %>% 
+  add_model(email_mod1) %>% 
+  add_recipe(email_rec1)
+```
+
+
+```{r}
+email_fit1 <- email_wflow1 %>% 
+  fit(data = train)
+```
+
+```{r}
+tidy(email_fit1) %>% print(n = 31)
+```
+
+```{r}
+email_pred1 <- predict(email_fit1, test) %>% 
+  bind_cols(test)
+
+email_pred1
+```
+
+```{r}
+email_pred1$spam <- as.factor(email_pred1$spam)
+conf_matrix1 <- conf_mat(email_pred1, truth = spam, estimate = .pred_class)
+summary(conf_matrix1)
+```
+
+**The results of the final model is:**<br>
+precision value: 0.9308511<br>
+recall value: 0.9859155<br>
+F1 value: 0.9575923<br>
+
+**After changing the features in the model, I obtained improved results. I ran the model multiple times with different combinations of features that I mentioned before and found that this particular combination of features produces the best F1 score value.**
