@@ -4,16 +4,6 @@ output: html_document
 date: "2023-01-05"
 ---
 
-**name: Zohar Attar**<br>
-**id: 209230879**
-
-### Instructions
-
-1.  All assignments are individual!
-2.  This assignment should be uploaded as two files: "rmd" and "html" (after knit) before 14/05/2023, 23:59.
-4.  Questions about the assignment should be asked using the Assignments forums.
-5.  All of the instructions of this assignment should be included in the final .html file.
-
 ```{r load-packages, message = FALSE}
 library(tidyverse)
 library(tidymodels)
@@ -30,37 +20,13 @@ library(ROSE)
 
 ##################################
 
- In this Exersise you have the email spam train and test datasets.<br>
- You are required to make the following:<br>
- 1) Data explanation:<br>
-Choose five variables and explain them.<br>
-Calculate mean median, std.<br>
-Show frequency graph.<br>
-Explain problems in the data (if was).<br>
- 2) Mail classification for spam or not:<br>
-    - Use logistic regression for classification <br>
-    - The goal is to get to a better solution as well as you can <br>
-    - You can use material not from this course. Explain them and why you used them.<br>
-    - Use the following evaluation metrics:<br>
-    Precision, Recall, and F1 score<br>
-    - Explain why in your opinion, this is the best solution<br>
-
-
+ 
 ```{r lines, echo=FALSE}
 set.seed(1116)
 train = read_rds("train_data.csv")
 test = read_rds("test_data.csv")
 ```
 
-**1.attach - This variable represents the number of attachment in the email message.**
-
-**line_breaks - This variable represents the number of line breaks in the email message.**
-
-**image - This variable represents the number of images in the email message.**
-
-**dollar - This variable represents the number of dollar signs in the email message.**
-
-**cc - This variable represents the number of cc (carbon copies) in the email message.**
 
 ```{r}
 vars <- train %>% select("attach", "line_breaks", "image", "dollar", "cc")
